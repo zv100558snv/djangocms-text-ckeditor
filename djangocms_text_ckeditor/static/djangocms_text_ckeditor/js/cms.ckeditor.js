@@ -16,7 +16,7 @@ $(document).ready(function () {
             'skin': 'moono',
             'toolbar_CMS': [
                 ['Undo', 'Redo'],
-                ['cmsplugins', '-', 'ShowBlocks'],
+                ['cmsplugins', 'cmswidget', '-', 'ShowBlocks'],
                 ['Format', 'Styles'],
                 ['TextColor', 'BGColor', '-', 'PasteText', 'PasteFromWord'],
                 ['Maximize', ''],
@@ -45,7 +45,7 @@ $(document).ready(function () {
             'allowedContent': true,
             'toolbarCanCollapse': false,
             'removePlugins': 'resize',
-            'extraPlugins': 'cmsplugins,cmsresize,cmsdialog'
+            'extraPlugins': 'cmsplugins,cmswidget,cmsresize,cmsdialog,widget'
         },
 
         init: function (container, options, settings) {
@@ -56,8 +56,15 @@ $(document).ready(function () {
                 this.options = $.extend(false, {
                     'settings': settings
                 }, this.options, options);
+                document.createElement('cms-plugin');
+                CKEDITOR.dtd['cms-plugin'] = CKEDITOR.dtd.span;
+                CKEDITOR.dtd.$block['cms-plugin'] = 1;
+                CKEDITOR.dtd.$inline['cms-plugin'] = 1;
+                CKEDITOR.dtd.$transparent['cms-plugin'] = 1;
+                CKEDITOR.dtd.body['cms-plugin'] = 1;
 
                 // add additional plugins (autoloads plugins.js)
+                CKEDITOR.plugins.addExternal('cmswidget', settings.static_url + '/ckeditor_plugins/cmswidget/');
                 CKEDITOR.plugins.addExternal('cmsplugins', settings.static_url + '/ckeditor_plugins/cmsplugins/');
                 CKEDITOR.plugins.addExternal('cmsresize', settings.static_url + '/ckeditor_plugins/cmsresize/');
                 CKEDITOR.plugins.addExternal('cmsdialog', settings.static_url + '/ckeditor_plugins/cmsdialog/');
