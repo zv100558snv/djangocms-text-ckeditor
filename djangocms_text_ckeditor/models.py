@@ -79,8 +79,9 @@ class AbstractText(CMSPlugin):
 
     def clean_plugins(self):
         ids = plugin_tags_to_id_list(self.body)
-        plugins = CMSPlugin.objects.filter(parent=self)
-        for plugin in plugins:
+        unbound_plugins = self.cmsplugin_set.exclude(pk__in=ids)
+
+        for plugin in unbound_plugins:
             if plugin.pk not in ids:
                 # delete plugins that are not referenced in the text anymore
                 plugin.delete()
@@ -92,7 +93,9 @@ class AbstractText(CMSPlugin):
         replace_ids = {}
         for new, old in ziplist:
             replace_ids[old.pk] = new.pk
-        self.body = replace_plugin_tags(old_instance.get_plugin_instance()[0].body, replace_ids)
+
+        old_text = old_instance.get_plugin_instance()[0].body
+        self.body = replace_plugin_tags(old_text, replace_ids)
         self.save()
 
     def get_translatable_content(self):

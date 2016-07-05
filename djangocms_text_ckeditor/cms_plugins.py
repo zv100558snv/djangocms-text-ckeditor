@@ -28,7 +28,7 @@ from django.views.decorators.http import require_POST
 from . import settings
 from .forms import DeleteOnCancelForm, TextForm
 from .models import Text
-from .utils import plugin_tags_to_user_html
+from .utils import plugin_tags_to_admin_html, plugin_tags_to_user_html
 from .widgets import TextEditorWidget
 
 
