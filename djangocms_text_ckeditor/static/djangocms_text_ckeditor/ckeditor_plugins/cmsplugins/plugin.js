@@ -59,9 +59,7 @@ $(document).ready(function () {
                 this.setupContextMenu();
                 this.editor.addCommand('cmspluginsEdit', {
                     exec: function () {
-                        var selection = that.editor.getSelection();
-                        var element = selection.getSelectedElement() || selection.getCommonAncestor().getAscendant('cms-plugin', true);
-
+                        var element = that.getElementFromSelection();
                         var plugin = that.getPluginWidget(element);
 
                         if (plugin) {
@@ -75,15 +73,18 @@ $(document).ready(function () {
             // if event is a jQuery event (touchend), than we mutate
             // event a bit so we make the payload similar to what ckeditor.event produces
             var handleEdit = function(event) {
+                var element;
+
                 if (event.type === 'touchend' || event.type === 'click') {
-                    var element = new CKEDITOR.dom.element(event.currentTarget);
-                    event.data = event.data ||  {};
+                    element = new CKEDITOR.dom.element(event.currentTarget);
+
+                    event.data = event.data || {};
+                    // have to fake selection to be able to replace markup after editing
                     that.editor.getSelection().fake(element);
                 } else {
                     // heavily relies on the fact that double click
                     // also selects an element
-                    var selection = that.editor.getSelection();
-                    var element = selection.getSelectedElement() || selection.getCommonAncestor().getAscendant('cms-plugin', true);
+                    element = that.getElementFromSelection();
                 }
 
                 var plugin = that.getPluginWidget(element);
@@ -104,8 +105,18 @@ $(document).ready(function () {
             this.setupDataProcessor();
         },
 
+        getElementFromSelection: function () {
+            var selection = this.editor.getSelection();
+            var element = selection.getSelectedElement() || selection.getCommonAncestor().getAscendant('cms-plugin', true);
+
+            return element;
+        },
+
         getPluginWidget: function (element) {
-            return element.getAscendant('cms-plugin', true);
+            if (!element) {
+                return null;
+            }
+            return element.getAscendant('cms-plugin', true) || element.findOne('cms-plugin');
         },
 
         setupDialog: function () {
