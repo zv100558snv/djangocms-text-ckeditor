@@ -9,16 +9,16 @@ CKEDITOR.plugins.add('cmswidget', {
             button: 'Create a simple box',
 
             template:
-                '<cms-plugin style="unset: all" class="cms-plugin">' +
+                '<cms-plugin style="unset: all">' +
                 '</cms-plugin>',
 
             allowedContent:
-                'cms-plugin(!cms-plugin)',
+                'cms-plugin',
 
-            requiredContent: 'cms-plugin(cms-plugin)',
+            requiredContent: 'cms-plugin',
 
             upcast: function( element ) {
-                return element.name == 'cms-plugin' && element.hasClass( 'cms-plugin' );
+                return element.name == 'cms-plugin';
             }
         } );
     }
