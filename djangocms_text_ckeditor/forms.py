@@ -84,7 +84,22 @@ class DeleteOnCancelForm(forms.Form):
         return self.cleaned_data
 
     def get_child_plugins(self):
-        return self.text_plugin.get_descendants()
+        # We use this queryset to limit the plugins
+        # a user can delete to only plugins that have not
+        # been saved in text and are descendants of the text plugin.
+        instance = self.text_plugin.get_plugin_instance()[0]
+
+        if instance:
+            # Only non-saved children can be deleted.
+            excluded_plugins = plugin_tags_to_id_list(instance.body)
+        else:
+            excluded_plugins = []
+
+        queryset = self.text_plugin.get_descendants()
+
+        if excluded_plugins:
+            queryset = queryset.exclude(pk__in=excluded_plugins)
+        return queryset
 
     def delete(self):
         child_plugins = self.cleaned_data.get('child_plugins')
