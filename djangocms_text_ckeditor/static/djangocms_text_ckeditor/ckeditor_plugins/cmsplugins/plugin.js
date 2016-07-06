@@ -102,9 +102,6 @@
                     CMS.$('cms-plugin', CMS.$('iframe.cke_wysiwyg_frame')[0]
                         .contentWindow.document.documentElement).on('click touchend', handleEdit);
                 });
-
-                // setup CKEDITOR.htmlDataProcessor
-                this.setupDataProcessor();
             },
 
             getElementFromSelection: function () {
@@ -268,21 +265,34 @@
 
             insertPlugin: function (data) {
                 var element;
+                var that = this;
                 var attrs = { id: data.plugin_id };
 
-                element = new CKEDITOR.dom.element('cms-plugin', this.editor.document); // eslint-disable-line new-cap
-                $.extend(attrs, {
-                    title: data.plugin_desc,
-                    alt: data.plugin_type
-                });
-                element.setAttributes(attrs);
+                debugger
 
-                // in case it's a fresh text plugin children don't have to be
-                // deleted separately
-                if (!this.options.delete_on_cancel) {
-                    this.child_plugins.push(data.plugin_id);
-                }
-                this.editor.insertElement(element);
+                $.ajax({
+                    method: 'GET',
+                    url: that.options.render_plugin_url,
+                    data: {
+                        token: that.options.action_token,
+                        plugin: data.plugin_id
+                    }
+                }).done(function (res) {
+                    console.log(res);
+                    element = new CKEDITOR.dom.element('cms-plugin', this.editor.document); // eslint-disable-line new-cap
+                    $.extend(attrs, {
+                        title: data.plugin_desc,
+                        alt: data.plugin_type
+                    });
+                    element.setAttributes(attrs);
+
+                    // in case it's a fresh text plugin children don't have to be
+                    // deleted separately
+                    if (!that.options.delete_on_cancel) {
+                        that.child_plugins.push(data.plugin_id);
+                    }
+                    that.editor.insertElement(element);
+                });
             },
 
             /**
@@ -306,7 +316,7 @@
                     e.preventDefault();
                     CMS.API.Toolbar.showLoader();
                     var data = {
-                        token: that.options.cancel_plugin_token
+                        token: that.options.action_token
                     };
 
                     if (!that.options.delete_on_cancel) {
@@ -334,67 +344,7 @@
                     'modal-close.text-plugin-' + that.options.plugin_id,
                     cancelModalCallback
                 );
-            },
-
-            setupDataProcessor: function () {
-                // var that = this;
-
-                // this.editor.dataProcessor.dataFilter.addRules({
-                //     elements: {
-                //         'cms-plugin': function (element) {
-                //             debugger
-                //             if (!element.attributes.id) {
-                //                 return null;
-                //             }
-                //
-                //             if (pluginsMap[element.attributes.id] && pluginsMap[element.atrributes.id].original &&
-                //                 !element.isClone) {
-                //                 return pluginsMap[element.attributes.id].original;
-                //             }
-                //
-                //             if (!pluginsMap[element.attributes.id] && !element.isClone) {
-                //                 var clone = element.clone();
-                //
-                //                 clone.isClone = true;
-                //
-                //                 if (clone.children.length) {
-                //                     clone.children = [];
-                //                 }
-                //
-                //                 pluginsMap[element.attributes.id] = {
-                //                     clone: clone,
-                //                     original: element
-                //                 };
-                //             }
-                //
-                //             return element;
-                //         }
-                //     }
-                // },
-                // {
-                //     applyToAll: true
-                // })
-                //
-                // this.editor.dataProcessor.htmlFilter.addRules({
-                //     elements: {
-                //         'cms-plugin': function (element) {
-                //             debugger
-                //             if (!element.attributes.id) {
-                //                 return null;
-                //             }
-                //
-                //             if (element.isClone) {
-                //                 return element;
-                //             }
-                //
-                //             return pluginsMap[element.attributes.id].clone;
-                //         }
-                //     }
-                // }, {
-                //     applyToAll: true
-                // });
             }
-
         });
 
     });
