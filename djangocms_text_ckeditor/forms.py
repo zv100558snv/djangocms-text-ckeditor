@@ -38,21 +38,7 @@ class RenderPluginForm(forms.Form):
         self.fields['plugin'].queryset = self.get_child_plugins()
 
     def get_child_plugins(self):
-        # We use this queryset to limit the plugins
-        # a user can delete to only plugins that have not
-        # been saved in text and are descendants of the text plugin.
-        instance = self.text_plugin.get_plugin_instance()[0]
-
-        if not instance:
-            return self.text_plugin.cmsplugin_set.none()
-
-        saved_plugins = plugin_tags_to_id_list(instance.body)
-
-        if not saved_plugins:
-            return self.text_plugin.cmsplugin_set.none()
-
-        queryset = self.text_plugin.get_descendants()
-        return queryset.filter(pk__in=saved_plugins)
+        return self.text_plugin.get_descendants()
 
     def render_plugin(self, request):
         plugin = self.cleaned_data['plugin']
