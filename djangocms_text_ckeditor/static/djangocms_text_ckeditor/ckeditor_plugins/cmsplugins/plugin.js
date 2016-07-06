@@ -268,7 +268,7 @@
                 var that = this;
                 var attrs = { id: data.plugin_id };
 
-                debugger
+                // debugger
 
                 $.ajax({
                     method: 'GET',
@@ -278,8 +278,7 @@
                         plugin: data.plugin_id
                     }
                 }).done(function (res) {
-                    console.log(res);
-                    element = new CKEDITOR.dom.element('cms-plugin', this.editor.document); // eslint-disable-line new-cap
+                    element = new CKEDITOR.dom.element($(res)[0], this.editor.document); // eslint-disable-line new-cap
                     $.extend(attrs, {
                         title: data.plugin_desc,
                         alt: data.plugin_type
