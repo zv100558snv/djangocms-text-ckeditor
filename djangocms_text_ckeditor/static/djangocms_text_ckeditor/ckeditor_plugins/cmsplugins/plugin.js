@@ -1,6 +1,8 @@
-(function($) {
+(function ($) {
 // CMS.$ will be passed for $
 $(document).ready(function () {
+
+    var pluginsMap = {};
 
     CKEDITOR.plugins.add('cmsplugins', {
 
@@ -8,7 +10,7 @@ $(document).ready(function () {
         icons: 'cmsplugins',
 
         // The plugin initialization logic goes inside this method.
-        init: function(editor) {
+        init: function (editor) {
             var that = this;
 
             this.options = CMS.CKEditor.options.settings;
@@ -53,13 +55,16 @@ $(document).ready(function () {
             });
 
             // handle edit event via context menu
-            if(this.editor.contextMenu) {
+            if (this.editor.contextMenu) {
                 this.setupContextMenu();
                 this.editor.addCommand('cmspluginsEdit', {
                     exec: function () {
                         var selection = that.editor.getSelection();
-                        var element = selection.getSelectedElement() || selection.getCommonAncestor().getAscendant('a', true);
-                        that.editPlugin(element);
+                        var element = selection.getSelectedElement() || selection.getCommonAncestor().getAscendant('cms-plugin', true);
+
+                        if (that.isPluginWidget(element)) {
+                            that.editPlugin(element.findOne('cms-plugin'));
+                        }
                     }
                 });
             }
@@ -78,19 +83,30 @@ $(document).ready(function () {
                     var selection = that.editor.getSelection();
                     var element = selection.getSelectedElement() || selection.getCommonAncestor().getAscendant('a', true);
                 }
-                if(element && element.getAttribute('id').indexOf('plugin_obj_') === 0) {
+                if (that.isPluginWidget(element)) {
                     event.data.dialog = '';
-                    that.editPlugin(element);
+
+                    var plugin = element.findOne('cms-plugin');
+
+                    that.editPlugin(plugin);
                 }
             }
             this.editor.on('doubleclick', handleEdit);
             this.editor.on('instanceReady', function () {
-                CMS.$('[id*="plugin_obj_"]', CMS.$('iframe.cke_wysiwyg_frame')[0]
+                CMS.$('cms-plugin', CMS.$('iframe.cke_wysiwyg_frame')[0]
                     .contentWindow.document.documentElement).on('click touchend', handleEdit);
             });
 
             // setup CKEDITOR.htmlDataProcessor
             this.setupDataProcessor();
+        },
+
+        isPluginWidget: function (element) {
+            if (element && element.getAttribute('class').indexOf('cke_widget') !== -1 && element.findOne('cms-plugin')) {
+                return true;
+            }
+
+            return false;
         },
 
         setupDialog: function () {
@@ -146,6 +162,8 @@ $(document).ready(function () {
         },
 
         setupContextMenu: function () {
+            var that = this;
+
             this.editor.addMenuGroup('cmspluginsGroup');
             this.editor.addMenuItem('cmspluginsItem', {
                 label: this.options.lang.edit,
@@ -157,14 +175,14 @@ $(document).ready(function () {
             this.editor.removeMenuItem('image');
 
             this.editor.contextMenu.addListener(function(element) {
-                if (element.$.id.indexOf('plugin_obj_') === 0) {
+                if (that.isPluginWidget(element)) {
                     return { cmspluginsItem: CKEDITOR.TRISTATE_OFF };
                 }
             });
         },
 
         editPlugin: function (element) {
-            var id = element.getAttribute('id').replace('plugin_obj_', '');
+            var id = element.getAttribute('id');
             this.editor.openDialog('cmspluginsDialog');
             var body = CMS.$(document);
 
@@ -220,27 +238,15 @@ $(document).ready(function () {
                 });
         },
 
-        // on ajax receivement from server, build <a> or <img> tag dependig in the plugin type
         insertPlugin: function (data) {
             var that = this;
-            var element, attrs = { id: 'plugin_obj_' + data.plugin_id };
-            if (data.plugin_type === this.options.lang.link) {
-                element = new CKEDITOR.dom.element('a', this.editor.document);
-                $.extend(attrs, {
-                    'href': '#',
-                    'data-cmsplugin_title': data.plugin_desc,
-                    'data-cmsplugin_alt': data.plugin_type,
-                    'data-cmsplugin_src': data.plugin_icon
-                });
-                element.setText(data.plugin_name);
-            } else {
-                element = new CKEDITOR.dom.element('img', this.editor.document);
-                $.extend(attrs, {
-                    'title': data.plugin_desc,
-                    'alt': data.plugin_type,
-                    'src': data.plugin_icon
-                });
-            }
+            var element, attrs = { id: data.plugin_id };
+
+            element = new CKEDITOR.dom.element('cms-plugin', this.editor.document);
+            $.extend(attrs, {
+                'title': data.plugin_desc,
+                'alt': data.plugin_type,
+            });
             element.setAttributes(attrs);
 
             // in case it's a fresh text plugin children don't have to be
@@ -298,51 +304,62 @@ $(document).ready(function () {
         },
 
         setupDataProcessor: function () {
-            var link_name = this.options.lang.link;
-            var link_pattern = new RegExp("^"+ link_name +"\\s-\\s(.+)$");
+            var that = this;
 
-            this.editor.dataProcessor.dataFilter.addRules({
-                elements: {
-                    // on load from server replace <img> tag by <a> in order to display a real link
-                    img: function(element) {
-                        var new_element, matches;
-                        if (element.attributes.id && element.attributes.alt
-                          && element.attributes.alt === link_name
-                          && element.attributes.id.indexOf('plugin_obj_') === 0) {
-                            matches = link_pattern.exec(element.attributes.title);
-                            new_element = new CKEDITOR.htmlParser.element('a', {
-                                'href': '#',
-                                'id': element.attributes.id,
-                                'data-cmsplugin_title': element.attributes.title,
-                                'data-cmsplugin_src': element.attributes.src,
-                                'data-cmsplugin_alt': element.attributes.alt
-                            });
-                            if (matches) {
-                                new_element.add(new CKEDITOR.htmlParser.text(matches[1]));
-                            }
-                            return new_element;
-                        }
-                    }
-                }
-            });
-
-            this.editor.dataProcessor.htmlFilter.addRules({
-                elements: {
-                    // on post to server replace <a> tag by <img> in order keep plugin format consistent
-                    a: function(element) {
-                        var new_element;
-                        if (element.attributes.id && element.attributes.id.indexOf('plugin_obj_') === 0) {
-                            new_element = new CKEDITOR.htmlParser.element('img', {
-                                id: element.attributes.id,
-                                src: element.attributes['data-cmsplugin_src'],
-                                title: element.attributes['data-cmsplugin_title'],
-                                alt: element.attributes['data-cmsplugin_alt']
-                            });
-                            return new_element;
-                        }
-                    }
-                }
-            });
+            // this.editor.dataProcessor.dataFilter.addRules({
+            //     elements: {
+            //         'cms-plugin': function (element) {
+            //             debugger
+            //             if (!element.attributes.id) {
+            //                 return null;
+            //             }
+            //
+            //             if (pluginsMap[element.attributes.id] && pluginsMap[element.atrributes.id].original &&
+            //                 !element.isClone) {
+            //                 return pluginsMap[element.attributes.id].original;
+            //             }
+            //
+            //             if (!pluginsMap[element.attributes.id] && !element.isClone) {
+            //                 var clone = element.clone();
+            //
+            //                 clone.isClone = true;
+            //
+            //                 if (clone.children.length) {
+            //                     clone.children = [];
+            //                 }
+            //
+            //                 pluginsMap[element.attributes.id] = {
+            //                     clone: clone,
+            //                     original: element
+            //                 };
+            //             }
+            //
+            //             return element;
+            //         }
+            //     }
+            // },
+            // {
+            //     applyToAll: true
+            // })
+            //
+            // this.editor.dataProcessor.htmlFilter.addRules({
+            //     elements: {
+            //         'cms-plugin': function (element) {
+            //             debugger
+            //             if (!element.attributes.id) {
+            //                 return null;
+            //             }
+            //
+            //             if (element.isClone) {
+            //                 return element;
+            //             }
+            //
+            //             return pluginsMap[element.attributes.id].clone;
+            //         }
+            //     }
+            // }, {
+            //     applyToAll: true
+            // });
         }
 
     });
