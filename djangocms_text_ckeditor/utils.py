@@ -8,8 +8,8 @@ from django.template.defaultfilters import force_escape
 from django.utils.functional import LazyObject
 
 
-OBJ_ADMIN_RE_PATTERN = r'(<cms-plugin [^>]*\bid="(?P<pk>\d+)"[^>]*/?>)(</cms-plugin>)'
-OBJ_ADMIN_RE = re.compile(OBJ_ADMIN_RE_PATTERN)
+OBJ_ADMIN_RE_PATTERN = r'(<cms-plugin [^>]*\bid="(?P<pk>\d+)"[^>]*/?>).*?(</cms-plugin>)'
+OBJ_ADMIN_RE = re.compile(OBJ_ADMIN_RE_PATTERN, flags=re.DOTALL)
 
 
 def plugin_to_tag(obj):
@@ -18,7 +18,7 @@ def plugin_to_tag(obj):
         'icon_alt': force_escape(obj.get_instance_icon_alt()),
     }
     plugin_tag = (
-        u'<cms-plugin alt="%(icon_alt)s"'
+        u'<cms-plugin alt="%(icon_alt)s "'
         u'title="%(icon_alt)s" id="%(id)d"></cms-plugin>'
     )
     return plugin_tag % plugin_attrs
@@ -29,7 +29,7 @@ def plugin_tags_to_id_list(text, regex=OBJ_ADMIN_RE):
         for tag in regex.finditer(text):
             plugin_id = tag.groupdict().get('pk')
 
-            if plugin_id and plugin_id.isdigit():
+            if plugin_id:
                 yield plugin_id
     return [int(id) for id in _find_plugins()]
 
@@ -68,6 +68,13 @@ def plugin_tags_to_admin_html(text, context, placeholder):
         groups = match.groups()
         return u'{}{}{}'.format(groups[0], plugin_content, groups[2])
     return _plugin_tags_to_html(text, output_func=_render_plugin)
+
+
+def plugin_tags_to_db(text):
+    def _strip_plugin_content(obj, match):
+        groups = match.groups()
+        return groups[0] + groups[2]
+    return _plugin_tags_to_html(text, output_func=_strip_plugin_content)
 
 
 def replace_plugin_tags(text, id_dict, regex=OBJ_ADMIN_RE):

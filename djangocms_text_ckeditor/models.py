@@ -11,7 +11,12 @@ from django.utils.translation import ugettext_lazy as _
 
 from . import compat, settings
 from .html import clean_html, extract_images
-from .utils import plugin_tags_to_id_list, plugin_to_tag, replace_plugin_tags
+from .utils import (
+    plugin_tags_to_id_list,
+    plugin_tags_to_db,
+    plugin_to_tag,
+    replace_plugin_tags,
+)
 
 try:
     from softhyphen.html import hyphenate
@@ -60,6 +65,9 @@ class AbstractText(CMSPlugin):
         super(AbstractText, self).__init__(*args, **kwargs)
         self.body = force_text(self.body)
 
+    def clean(self):
+        self.body = plugin_tags_to_db(self.body)
+
     def save(self, *args, **kwargs):
         super(AbstractText, self).save(*args, **kwargs)
         body = self.body
@@ -82,9 +90,8 @@ class AbstractText(CMSPlugin):
         unbound_plugins = self.cmsplugin_set.exclude(pk__in=ids)
 
         for plugin in unbound_plugins:
-            if plugin.pk not in ids:
-                # delete plugins that are not referenced in the text anymore
-                plugin.delete()
+            # delete plugins that are not referenced in the text anymore
+            plugin.delete()
 
     def post_copy(self, old_instance, ziplist):
         """

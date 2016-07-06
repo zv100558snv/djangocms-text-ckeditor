@@ -101,7 +101,6 @@ class TextPlugin(CMSPluginBase):
                 if rendered_text:
                     initial['body'] = rendered_text
                 super(TextPluginForm, self).__init__(*args, initial=initial, **kwargs)
-
         return TextPluginForm
 
     @xframe_options_sameorigin
