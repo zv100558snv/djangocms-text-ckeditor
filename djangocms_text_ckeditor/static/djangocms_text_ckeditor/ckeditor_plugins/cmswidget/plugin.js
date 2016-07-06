@@ -1,27 +1,27 @@
-(function($) {
+(function () {
 
-CKEDITOR.plugins.add('cmswidget', {
-    requires: 'widget',
+    CKEDITOR.plugins.add('cmswidget', {
+        requires: 'widget',
 
-    init: function( editor ) {
-        editor.widgets.add( 'cmswidget', {
+        init: function (editor) {
+            editor.widgets.add('cmswidget', {
 
-            button: 'Create a simple box',
+                button: 'CMS Plugin',
 
-            template:
-                '<cms-plugin style="unset: all">' +
-                '</cms-plugin>',
+                template:
+                    '<cms-plugin style="unset: all">' +
+                    '</cms-plugin>',
 
-            allowedContent:
-                'cms-plugin',
+                allowedContent:
+                    'cms-plugin',
 
-            requiredContent: 'cms-plugin',
+                requiredContent: 'cms-plugin',
 
-            upcast: function( element ) {
-                return element.name == 'cms-plugin';
-            }
-        } );
-    }
-});
+                upcast: function (element) {
+                    return element.name === 'cms-plugin';
+                }
+            });
+        }
+    });
 
-})(CMS.$);
+})();
