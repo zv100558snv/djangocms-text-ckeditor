@@ -62,8 +62,10 @@ $(document).ready(function () {
                         var selection = that.editor.getSelection();
                         var element = selection.getSelectedElement() || selection.getCommonAncestor().getAscendant('cms-plugin', true);
 
-                        if (that.isPluginWidget(element)) {
-                            that.editPlugin(element.findOne('cms-plugin'));
+                        var plugin = that.getPluginWidget(element);
+
+                        if (plugin) {
+                            that.editPlugin(plugin);
                         }
                     }
                 });
@@ -74,19 +76,20 @@ $(document).ready(function () {
             // event a bit so we make the payload similar to what ckeditor.event produces
             var handleEdit = function(event) {
                 if (event.type === 'touchend' || event.type === 'click') {
-                    var element = event.currentTarget;
+                    var element = new CKEDITOR.dom.element(event.currentTarget);
                     event.data = event.data ||  {};
-                    that.editor.getSelection().fake(new CKEDITOR.dom.element(element));
+                    that.editor.getSelection().fake(element);
                 } else {
                     // heavily relies on the fact that double click
                     // also selects an element
                     var selection = that.editor.getSelection();
-                    var element = selection.getSelectedElement() || selection.getCommonAncestor().getAscendant('a', true);
+                    var element = selection.getSelectedElement() || selection.getCommonAncestor().getAscendant('cms-plugin', true);
                 }
-                if (that.isPluginWidget(element)) {
-                    event.data.dialog = '';
 
-                    var plugin = element.findOne('cms-plugin');
+                var plugin = that.getPluginWidget(element);
+
+                if (plugin) {
+                    event.data.dialog = '';
 
                     that.editPlugin(plugin);
                 }
@@ -101,12 +104,8 @@ $(document).ready(function () {
             this.setupDataProcessor();
         },
 
-        isPluginWidget: function (element) {
-            if (element && element.getAttribute('class').indexOf('cke_widget') !== -1 && element.findOne('cms-plugin')) {
-                return true;
-            }
-
-            return false;
+        getPluginWidget: function (element) {
+            return element.getAscendant('cms-plugin', true);
         },
 
         setupDialog: function () {
@@ -175,7 +174,9 @@ $(document).ready(function () {
             this.editor.removeMenuItem('image');
 
             this.editor.contextMenu.addListener(function(element) {
-                if (that.isPluginWidget(element)) {
+                var plugin = that.getPluginWidget(element);
+
+                if (plugin) {
                     return { cmspluginsItem: CKEDITOR.TRISTATE_OFF };
                 }
             });
