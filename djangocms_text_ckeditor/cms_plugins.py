@@ -19,6 +19,7 @@ from django.http import (
     HttpResponseRedirect,
 )
 from django.shortcuts import get_object_or_404
+from django.template import RequestContext
 from django.utils.decorators import method_decorator
 from django.utils.encoding import force_text
 from django.utils.translation import ugettext
@@ -79,9 +80,27 @@ class TextPlugin(CMSPluginBase):
             plugin=plugin,
         )
 
+        instance = plugin.get_plugin_instance()[0]
+
+        if instance:
+            rendered_text = plugin_tags_to_admin_html(
+                text=instance.body,
+                context=RequestContext(request),
+                placeholder=plugin.placeholder,
+            )
+        else:
+            rendered_text = None
+
         # We avoid mutating the Form declared above by subclassing
         class TextPluginForm(self.form):
             body = CharField(widget=widget, required=False)
+
+            def __init__(self, *args, **kwargs):
+                initial = kwargs.pop('initial', {})
+
+                if rendered_text:
+                    initial['body'] = rendered_text
+                super(TextPluginForm, self).__init__(*args, initial=initial, **kwargs)
 
         return TextPluginForm
 
