@@ -4,11 +4,61 @@ from django import forms
 from django.core import signing
 from django.core.signing import BadSignature
 from django.forms.models import ModelForm
-from django.utils.encoding import force_text
+from django.template import RequestContext
 from django.utils.translation import ugettext
 
 from .models import Text
-from .utils import plugin_tags_to_id_list
+from .utils import plugin_to_tag, plugin_tags_to_id_list
+
+
+class ActionTokenValidationForm(forms.Form):
+
+    token = forms.CharField(required=True)
+
+    def get_id_from_token(self, session_id):
+        payload = self.cleaned_data['token']
+
+        signer = signing.Signer(salt=session_id)
+
+        try:
+            return signer.unsign(payload)
+        except BadSignature:
+            return False
+
+
+class RenderPluginForm(forms.Form):
+    plugin = forms.ModelChoiceField(
+        queryset=CMSPlugin.objects.none(),
+        required=True,
+    )
+
+    def __init__(self, *args, **kwargs):
+        self.text_plugin = kwargs.pop('text_plugin')
+        super(RenderPluginForm, self).__init__(*args, **kwargs)
+        self.fields['plugin'].queryset = self.get_child_plugins()
+
+    def get_child_plugins(self):
+        # We use this queryset to limit the plugins
+        # a user can delete to only plugins that have not
+        # been saved in text and are descendants of the text plugin.
+        instance = self.text_plugin.get_plugin_instance()[0]
+
+        if not instance:
+            return self.text_plugin.cmsplugin_set.none()
+
+        saved_plugins = plugin_tags_to_id_list(instance.body)
+
+        if not saved_plugins:
+            return self.text_plugin.cmsplugin_set.none()
+
+        queryset = self.text_plugin.get_descendants()
+        return queryset.filter(pk__in=saved_plugins)
+
+    def render_plugin(self, request):
+        plugin = self.cleaned_data['plugin']
+        context = RequestContext(request)
+        rendered_content = plugin.render_plugin(context)
+        return plugin_to_tag(plugin, content=rendered_content)
 
 
 class DeleteOnCancelForm(forms.Form):
@@ -16,7 +66,6 @@ class DeleteOnCancelForm(forms.Form):
         queryset=CMSPlugin.objects.none(),
         required=False,
     )
-    token = forms.CharField(required=True)
 
     def __init__(self, *args, **kwargs):
         self.text_plugin = kwargs.pop('text_plugin')
@@ -33,19 +82,6 @@ class DeleteOnCancelForm(forms.Form):
             message = ugettext("Can't delete a saved plugin.")
             raise forms.ValidationError(message, code='invalid')
         return self.cleaned_data
-
-    def is_valid_token(self, session_id):
-        plugin_id = force_text(self.text_plugin.pk)
-        payload = ':'.join([plugin_id, self.cleaned_data['token']])
-
-        signer = signing.Signer(salt=session_id)
-
-        try:
-            signer.unsign(payload)
-        except BadSignature:
-            return False
-        else:
-            return True
 
     def get_child_plugins(self):
         # We use this queryset to limit the plugins

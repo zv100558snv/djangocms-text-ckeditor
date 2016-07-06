@@ -12,14 +12,15 @@ OBJ_ADMIN_RE_PATTERN = r'(<cms-plugin [^>]*\bid="(?P<pk>\d+)"[^>]*/?>).*?(</cms-
 OBJ_ADMIN_RE = re.compile(OBJ_ADMIN_RE_PATTERN, flags=re.DOTALL)
 
 
-def plugin_to_tag(obj):
+def plugin_to_tag(obj, content=''):
     plugin_attrs = {
         'id': obj.pk,
         'icon_alt': force_escape(obj.get_instance_icon_alt()),
+        'content': content,
     }
     plugin_tag = (
         u'<cms-plugin alt="%(icon_alt)s "'
-        u'title="%(icon_alt)s" id="%(id)d"></cms-plugin>'
+        u'title="%(icon_alt)s" id="%(id)d">%(content)s</cms-plugin>'
     )
     return plugin_tag % plugin_attrs
 
