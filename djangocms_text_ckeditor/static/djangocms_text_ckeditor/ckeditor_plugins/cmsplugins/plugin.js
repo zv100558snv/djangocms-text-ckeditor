@@ -278,7 +278,7 @@
                         plugin: data.plugin_id
                     }
                 }).done(function (res) {
-                    element = new CKEDITOR.dom.element($(res)[0], this.editor.document); // eslint-disable-line new-cap
+                    element = new CKEDITOR.dom.element($(res)[0], that.editor.document); // eslint-disable-line new-cap
                     $.extend(attrs, {
                         title: data.plugin_desc,
                         alt: data.plugin_type
