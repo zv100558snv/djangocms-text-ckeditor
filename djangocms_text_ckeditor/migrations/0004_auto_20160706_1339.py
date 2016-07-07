@@ -43,7 +43,7 @@ def _replace_text_body(model, input_pattern, output_tag, id_format):
 def forwards(apps, schema_editor):
     _replace_text_body(
         model=apps.get_model('djangocms_text_ckeditor', 'Text'),
-        input_pattern=r'<img ([^>])*\bid="plugin_obj_(?P<pk>\d+)"([^>]*)/?>',
+        input_pattern=r'<img ([^>]*)\bid="plugin_obj_(?P<pk>\d+)"([^>]*)/?>',
         output_tag='<cms-plugin {}></cms-plugin>',
         id_format='id="{}"',
     )
@@ -52,7 +52,7 @@ def forwards(apps, schema_editor):
 def backwards(apps, schema_editor):
     _replace_text_body(
         model=apps.get_model('djangocms_text_ckeditor', 'Text'),
-        input_pattern=r'<cms-plugin ([^>])*\bid="(?P<pk>\d+)"([^>]*)/?></cms-plugin>',
+        input_pattern=r'<cms-plugin ([^>]*)\bid="(?P<pk>\d+)"([^>]*)/?></cms-plugin>',
         output_tag='<img {}>',
         id_format='id="plugin_obj_{}"',
     )
