@@ -1,5 +1,4 @@
 (function () {
-
     CKEDITOR.plugins.add('cmswidget', {
         requires: 'widget',
 
@@ -23,5 +22,4 @@
             });
         }
     });
-
 })();
