@@ -3,18 +3,56 @@ import re
 
 from cms.api import add_plugin, create_page
 from cms.models import CMSPlugin, Page, Title
+from cms.utils.urlutils import admin_reverse
 from cms.test_utils.testcases import CMSTestCase
 from django.contrib import admin
 from django.contrib.auth import get_permission_codename
 from django.contrib.auth.models import Permission
-from django.utils.encoding import force_text
+from django.template import RequestContext
+from django.utils.http import urlencode
+from django.utils.html import escape
 from djangocms_helper.base_test import BaseTestCase
 
 from djangocms_text_ckeditor.models import Text
-from djangocms_text_ckeditor.utils import plugin_to_tag
+from djangocms_text_ckeditor.utils import (
+    _plugin_tags_to_html,
+    plugin_to_tag,
+    plugin_tags_to_admin_html,
+)
 
 
 class PluginActionsTestCase(CMSTestCase, BaseTestCase):
+
+    def get_admin_url(self, model, action, *args):
+        opts = model._meta
+        url_name = "{}_{}_{}".format(opts.app_label, opts.model_name, action)
+        return admin_reverse(url_name, args=args)
+
+    def _get_add_plugin_uri(self, placeholder, language='en'):
+        endpoint = placeholder.get_add_url()
+        uri = endpoint + '?' + urlencode({
+            'plugin_type': 'TextPlugin',
+            'placeholder_id': placeholder.pk,
+            'plugin_language': language,
+        })
+        return uri
+
+    def _add_child_plugin(self, text_plugin):
+        plugin = add_plugin(
+            text_plugin.placeholder,
+            'PicturePlugin',
+            'en',
+            target=text_plugin,
+            image=self.create_django_image_obj(),
+            alt="Foo",
+        )
+        return plugin
+
+    def _replace_plugin_contents(self, text, new_plugin_content):
+        def _do_replace(obj, match):
+            groups = match.groups()
+            return u'{}{}{}'.format(groups[0], new_plugin_content, groups[2])
+        return _plugin_tags_to_html(text, output_func=_do_replace)
 
     def add_plugin_to_text(self, text_plugin, plugin):
         text_plugin.body = '%s %s' % (text_plugin.body, plugin_to_tag(plugin))
@@ -77,13 +115,13 @@ class PluginActionsTestCase(CMSTestCase, BaseTestCase):
 
         with self.login_user_context(self.get_superuser()):
             request = self.get_request()
-            cancel_token = text_plugin_class.get_cancel_token(request, cms_plugin)
+            action_token = text_plugin_class.get_action_token(request, cms_plugin)
             response = self.client.get(response.url)
 
             self.assertEqual(response.status_code, 200)
 
             # Assert cancel token is present
-            self.assertContains(response, cancel_token)
+            self.assertContains(response, action_token)
 
         request = self.get_post_request({'body': "Hello world"})
         response = native_placeholder_admin.edit_plugin(request, text_plugin_pk)
@@ -130,10 +168,10 @@ class PluginActionsTestCase(CMSTestCase, BaseTestCase):
 
         with self.login_user_context(self.get_superuser()):
             request = self.get_request()
-            cancel_token = text_plugin_class.get_cancel_token(request, cms_plugin)
-            data = {'plugin': text_plugin_pk, 'token': cancel_token}
+            action_token = text_plugin_class.get_action_token(request, cms_plugin)
+            data = {'token': action_token}
             request = self.get_post_request(data)
-            response = text_plugin_class.delete_on_cancel(request, text_plugin_pk)
+            response = text_plugin_class.delete_on_cancel(request)
             self.assertEqual(response.status_code, 204)
 
         # Assert "ghost" plugin has been removed
@@ -152,13 +190,10 @@ class PluginActionsTestCase(CMSTestCase, BaseTestCase):
 
         with self.login_user_context(self.get_superuser()):
             request = self.get_request()
-            cancel_token = text_plugin_class.get_cancel_token(request, text_plugin)
-            data = {'token': cancel_token}
+            action_token = text_plugin_class.get_action_token(request, text_plugin)
+            data = {'token': action_token}
             request = self.get_post_request(data)
-            response = text_plugin_class.delete_on_cancel(
-                request,
-                force_text(text_plugin.pk)
-            )
+            response = text_plugin_class.delete_on_cancel(request)
             self.assertEqual(response.status_code, 400)
 
     def test_add_and_cancel_child_plugin(self):
@@ -212,16 +247,15 @@ class PluginActionsTestCase(CMSTestCase, BaseTestCase):
 
         text_plugin = self.add_plugin_to_text(text_plugin, child_plugin_1)
         text_plugin = self.add_plugin_to_text(text_plugin, child_plugin_4)
-        text_plugin_id = force_text(text_plugin.pk)
 
         with self.login_user_context(self.get_superuser()):
             request = self.get_request()
-            cancel_token = text_plugin_class.get_cancel_token(request, text_plugin)
+            action_token = text_plugin_class.get_action_token(request, text_plugin)
 
             # Assert user is unable to delete a saved child plugin
-            data = {'token': cancel_token, 'child_plugins': [child_plugin_1.pk]}
+            data = {'token': action_token, 'child_plugins': [child_plugin_1.pk]}
             request = self.get_post_request(data)
-            response = text_plugin_class.delete_on_cancel(request, text_plugin_id)
+            response = text_plugin_class.delete_on_cancel(request)
             self.assertEqual(response.status_code, 400)
             self.assertObjectExist(CMSPlugin.objects.all(), pk=child_plugin_1.pk)
 
@@ -233,9 +267,9 @@ class PluginActionsTestCase(CMSTestCase, BaseTestCase):
                 child_plugin_3.pk,
                 child_plugin_4.pk,
             ]
-            data = {'token': cancel_token, 'child_plugins': plugin_ids}
+            data = {'token': action_token, 'child_plugins': plugin_ids}
             request = self.get_post_request(data)
-            response = text_plugin_class.delete_on_cancel(request, text_plugin_id)
+            response = text_plugin_class.delete_on_cancel(request)
             self.assertEqual(response.status_code, 400)
             self.assertObjectExist(CMSPlugin.objects.all(), pk=child_plugin_1.pk)
             self.assertObjectExist(CMSPlugin.objects.all(), pk=child_plugin_2.pk)
@@ -246,15 +280,15 @@ class PluginActionsTestCase(CMSTestCase, BaseTestCase):
                 child_plugin_2.pk,
                 child_plugin_3.pk,
             ]
-            data = {'token': cancel_token, 'child_plugins': plugin_ids}
+            data = {'token': action_token, 'child_plugins': plugin_ids}
             request = self.get_post_request(data)
-            response = text_plugin_class.delete_on_cancel(request, text_plugin_id)
+            response = text_plugin_class.delete_on_cancel(request)
             self.assertEqual(response.status_code, 204)
 
             self.assertObjectDoesNotExist(CMSPlugin.objects.all(), pk=child_plugin_2.pk)
             self.assertObjectDoesNotExist(CMSPlugin.objects.all(), pk=child_plugin_3.pk)
 
-    def test_cancel_token_per_session(self):
+    def test_action_token_per_session(self):
         # Assert that a cancel token for the same plugin
         # is different per user session.
         simple_page = create_page('test page', 'page.html', u'en')
@@ -271,45 +305,37 @@ class PluginActionsTestCase(CMSTestCase, BaseTestCase):
 
         with self.login_user_context(self.get_superuser()):
             request = self.get_request()
-            cancel_token_1 = text_plugin_class.get_cancel_token(request, text_plugin)
+            action_token_1 = text_plugin_class.get_action_token(request, text_plugin)
 
         with self.login_user_context(self.get_superuser()):
             request = self.get_request()
-            cancel_token_2 = text_plugin_class.get_cancel_token(request, text_plugin)
+            action_token_2 = text_plugin_class.get_action_token(request, text_plugin)
 
-        self.assertNotEqual(cancel_token_1, cancel_token_2)
+        self.assertNotEqual(action_token_1, action_token_2)
 
     def test_add_and_cancel_plugin_permissions(self):
         simple_page = create_page('test page', 'page.html', u'en')
         simple_placeholder = simple_page.placeholders.get(slot='content')
 
-        native_placeholder_admin = self.get_page_admin()
+        endpoint = self._get_add_plugin_uri(simple_placeholder)
 
-        request = self.get_request()
-        request.GET = request.GET.copy()
-        request.GET.update({
-            'plugin_type': 'TextPlugin',
-            'placeholder_id': simple_placeholder.pk,
-            'plugin_language': 'en',
-            'plugin_parent': '',
-        })
-
-        response = native_placeholder_admin.add_plugin(request)
-
-        self.assertEqual(response.status_code, 302)
+        with self.login_user_context(self.user):
+            response = self.client.post(endpoint, {})
+            self.assertEqual(response.status_code, 302)
 
         # Point to the newly created text plugin
         text_plugin_pk = self.get_plugin_id_from_response(response)
         cms_plugin = CMSPlugin.objects.get(pk=text_plugin_pk)
         text_plugin_class = cms_plugin.get_plugin_class_instance()
 
+        endpoint = self.get_admin_url(Text, 'delete_on_cancel')
+
         # Assert a standard user (no staff) can't delete ghost plugin
         with self.login_user_context(self.get_standard_user()):
             request = self.get_request()
-            cancel_token = text_plugin_class.get_cancel_token(request, cms_plugin)
-            data = {'plugin': text_plugin_pk, 'token': cancel_token}
-            request = self.get_post_request(data)
-            response = text_plugin_class.delete_on_cancel(request, text_plugin_pk)
+            action_token = text_plugin_class.get_action_token(request, cms_plugin)
+            data = {'token': action_token}
+            response = self.client.post(endpoint, data)
             self.assertEqual(response.status_code, 403)
 
         staff_user = self._create_user("addonly-staff", is_staff=True, is_superuser=False)
@@ -319,8 +345,201 @@ class PluginActionsTestCase(CMSTestCase, BaseTestCase):
 
         with self.login_user_context(staff_user):
             request = self.get_request()
-            cancel_token = text_plugin_class.get_cancel_token(request, cms_plugin)
-            data = {'plugin': text_plugin_pk, 'token': cancel_token}
-            request = self.get_post_request(data)
-            response = text_plugin_class.delete_on_cancel(request, text_plugin_pk)
+            action_token = text_plugin_class.get_action_token(request, cms_plugin)
+            data = {'token': action_token}
+            response = self.client.post(endpoint, data)
             self.assertEqual(response.status_code, 204)
+
+    def test_change_form_has_rendered_plugin_content(self):
+        """
+        When the text form is rendered in the admin,
+        the child plugins are rendered as their contents passed
+        as initial data to the text field.
+        """
+        simple_page = create_page('test page', 'page.html', u'en')
+        simple_placeholder = simple_page.placeholders.get(slot='content')
+
+        text_plugin = add_plugin(
+            simple_placeholder,
+            "TextPlugin",
+            "en",
+            body="I'm the first",
+        )
+
+        child_plugins = [
+            self._add_child_plugin(text_plugin),
+            self._add_child_plugin(text_plugin),
+        ]
+
+        for plugin in child_plugins:
+            text_plugin = self.add_plugin_to_text(text_plugin, plugin)
+
+        with self.login_user_context(self.get_superuser()):
+            text_with_rendered_plugins = plugin_tags_to_admin_html(
+                text=text_plugin.body,
+                context=RequestContext(self.get_request()),
+                placeholder=text_plugin.placeholder,
+            )
+
+            endpoint = self.get_admin_url(Page, 'edit_plugin', text_plugin.pk)
+            response = self.client.get(endpoint)
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(
+                response.context['adminform'].form['body'].value(),
+                text_with_rendered_plugins,
+            )
+            self.assertContains(
+                response,
+                escape(text_with_rendered_plugins),
+                html=False,
+            )
+
+    def test_user_cant_edit_child_plugins_directly(self):
+        """
+        No user regardless of permissions can modify the contents
+        of a child plugin directly in the text plugin text.
+        """
+        simple_page = create_page('test page', 'page.html', u'en')
+        simple_placeholder = simple_page.placeholders.get(slot='content')
+
+        text_plugin = add_plugin(
+            simple_placeholder,
+            "TextPlugin",
+            "en",
+            body="I'm the first",
+        )
+
+        child_plugins = [
+            self._add_child_plugin(text_plugin),
+            self._add_child_plugin(text_plugin),
+        ]
+
+        for plugin in child_plugins:
+            text_plugin = self.add_plugin_to_text(text_plugin, plugin)
+
+        with self.login_user_context(self.get_superuser()):
+            expected_text = text_plugin.body
+
+            # This returns the child plugins with their content
+            # overridden to <img src="">
+            overridden_text = self._replace_plugin_contents(
+                text_plugin.body,
+                new_plugin_content='<img src="">'
+            )
+
+            endpoint = self.get_admin_url(Page, 'edit_plugin', text_plugin.pk)
+            response = self.client.post(endpoint, {'body': overridden_text})
+            text_plugin.refresh_from_db()
+
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(text_plugin.body, expected_text)
+
+    def test_render_child_plugin_endpoint(self):
+        simple_page = create_page('test page', 'page.html', u'en')
+        simple_placeholder = simple_page.placeholders.get(slot='content')
+        text_plugin = add_plugin(
+            simple_placeholder,
+            "TextPlugin",
+            "en",
+            body="I'm the first",
+        )
+        text_plugin_class = text_plugin.get_plugin_class_instance()
+        child_plugin = self._add_child_plugin(text_plugin)
+        text_plugin = self.add_plugin_to_text(text_plugin, child_plugin)
+
+        with self.login_user_context(self.get_superuser()):
+            request = self.get_request()
+            action_token = text_plugin_class.get_action_token(request, text_plugin)
+            endpoint = self.get_admin_url(Text, 'render_plugin')
+            endpoint += '?token={}&plugin={}'.format(action_token, child_plugin.pk)
+            response = self.client.get(endpoint)
+
+            self.assertEqual(response.status_code, 200)
+
+            context = RequestContext(request)
+            rendered_content = child_plugin.render_plugin(context)
+            rendered_child_plugin = plugin_to_tag(child_plugin, content=rendered_content)
+
+            self.assertEqual(response.content, rendered_child_plugin)
+
+    def test_render_child_plugin_permissions(self):
+        """
+        Users can't render a child plugin without change permissions
+        on the placeholder attached object and the text plugin.
+        """
+        simple_page = create_page('test page', 'page.html', u'en')
+        simple_placeholder = simple_page.placeholders.get(slot='content')
+        text_plugin = add_plugin(
+            simple_placeholder,
+            "TextPlugin",
+            "en",
+            body="I'm the first",
+        )
+        text_plugin_class = text_plugin.get_plugin_class_instance()
+        child_plugin = self._add_child_plugin(text_plugin)
+        text_plugin = self.add_plugin_to_text(text_plugin, child_plugin)
+
+        with self.login_user_context(self.get_standard_user()):
+            request = self.get_request()
+            action_token = text_plugin_class.get_action_token(request, text_plugin)
+            endpoint = self.get_admin_url(Text, 'render_plugin')
+            endpoint += '?token={}&plugin={}'.format(action_token, child_plugin.pk)
+            response = self.client.get(endpoint)
+
+            self.assertEqual(response.status_code, 403)
+            self.assertEqual(response.content, '<h1>403 Forbidden</h1>')
+
+    def test_render_child_plugin_token_validation(self):
+        """
+        Users can only render a child plugin if the token
+        was created in the current session and it's text plugin
+        matches the child plugin parent.
+        """
+        simple_page = create_page('test page', 'page.html', u'en')
+        simple_placeholder = simple_page.placeholders.get(slot='content')
+        text_plugin = add_plugin(
+            simple_placeholder,
+            "TextPlugin",
+            "en",
+            body="I'm the first",
+        )
+        text_plugin_class = text_plugin.get_plugin_class_instance()
+        child_plugin = self._add_child_plugin(text_plugin)
+
+        text_plugin = self.add_plugin_to_text(text_plugin, child_plugin)
+
+        # Tokens are unique per session.
+        # Users can't render a child plugin with a token
+        # from another session.
+        with self.login_user_context(self.get_superuser()):
+            request = self.get_request()
+
+        with self.login_user_context(self.get_superuser()):
+            action_token = text_plugin_class.get_action_token(request, text_plugin)
+            endpoint = self.get_admin_url(Text, 'render_plugin')
+            endpoint += '?token={}&plugin={}'.format(action_token, child_plugin.pk)
+            response = self.client.get(endpoint)
+
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.content, 'Unable to process your request. Invalid token.')
+
+        text_plugin_2 = add_plugin(
+            simple_placeholder,
+            "TextPlugin",
+            "en",
+            body="I'm the second",
+        )
+
+        # Tokens are unique per text plugin.
+        # User can't render a child plugin for a token whose text plugin
+        # does not match the plugin's parent.
+        with self.login_user_context(self.get_superuser()):
+            request = self.get_request()
+            action_token = text_plugin_class.get_action_token(request, text_plugin_2)
+            endpoint = self.get_admin_url(Text, 'render_plugin')
+            endpoint += '?token={}&plugin={}'.format(action_token, child_plugin.pk)
+            response = self.client.get(endpoint)
+
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.content, 'Unable to process your request.')

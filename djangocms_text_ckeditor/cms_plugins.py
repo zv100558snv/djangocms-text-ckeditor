@@ -216,10 +216,7 @@ class TextPlugin(CMSPluginBase):
         except ValidationError as error:
             return HttpResponseBadRequest(error.message)
 
-        form = RenderPluginForm(
-            data=request.GET,
-            text_plugin=text_plugin,
-        )
+        form = RenderPluginForm(request.GET, text_plugin=text_plugin)
 
         if not form.is_valid():
             message = ugettext("Unable to process your request.")
@@ -240,9 +237,6 @@ class TextPlugin(CMSPluginBase):
     def delete_on_cancel(self, request):
         # This view is responsible for deleting a plugin
         # bypassing the delete permissions.
-        # We check for add permissions because this view is meant
-        # only for plugins created through the ckeditor
-        # and the ckeditor plugin itself.
         try:
             text_plugin = self._get_text_plugin_from_request(request, data=request.POST)
         except ValidationError as error:
@@ -254,10 +248,7 @@ class TextPlugin(CMSPluginBase):
         # is not present in the text plugin (because then it's not a cancel).
         # If the plugin is a text plugin then we validate that the text
         # plugin does NOT have a real instance attached.
-        form = DeleteOnCancelForm(
-            request.POST,
-            text_plugin=text_plugin,
-        )
+        form = DeleteOnCancelForm(request.POST, text_plugin=text_plugin)
 
         if not form.is_valid():
             message = ugettext("Unable to process your request.")
@@ -267,6 +258,9 @@ class TextPlugin(CMSPluginBase):
         # The following is needed for permission checking
         plugin_class.opts = plugin_class.model._meta
 
+        # Check for add permissions because this view is meant
+        # only for plugins created through the ckeditor
+        # and the ckeditor plugin itself.
         if not (plugin_class.has_add_permission(request) and
                 text_plugin.placeholder.has_add_permission(request)):
             raise PermissionDenied
