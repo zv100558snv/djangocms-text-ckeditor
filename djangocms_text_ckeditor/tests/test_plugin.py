@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import re
 
-from cms.api import add_plugin, create_page
+from cms.api import add_plugin, create_page, create_title
 from cms.models import CMSPlugin, Page, Title
 from cms.utils.urlutils import admin_reverse
 from cms.test_utils.testcases import CMSTestCase
@@ -18,6 +18,7 @@ from djangocms_text_ckeditor.utils import (
     _plugin_tags_to_html,
     plugin_to_tag,
     plugin_tags_to_admin_html,
+    plugin_tags_to_id_list,
 )
 
 
@@ -37,16 +38,41 @@ class PluginActionsTestCase(CMSTestCase, BaseTestCase):
         })
         return uri
 
-    def _add_child_plugin(self, text_plugin):
+    def _add_child_plugin(self, text_plugin, plugin_type='PicturePlugin', data_suffix=None):
+        name = '{} record'.format(plugin_type)
+
+        if data_suffix is not None:
+            name = '{} {}'.format(name, data_suffix)
+
+        basic_plugins = {
+            'LinkPlugin': {
+                'name': name,
+                'url': 'https://www.django-cms.org',
+            },
+        }
+
+        if plugin_type == 'PicturePlugin':
+            data = {'alt': name, 'image': self.create_django_image_obj()}
+        else:
+            data = basic_plugins[plugin_type]
+
         plugin = add_plugin(
             text_plugin.placeholder,
-            'PicturePlugin',
+            plugin_type,
             'en',
             target=text_plugin,
-            image=self.create_django_image_obj(),
-            alt="Foo",
+            **data
         )
         return plugin
+
+    def _add_text_plugin(self, placeholder):
+        text_plugin = add_plugin(
+            placeholder,
+            "TextPlugin",
+            "en",
+            body="Hello World",
+        )
+        return text_plugin
 
     def _replace_plugin_contents(self, text, new_plugin_content):
         def _do_replace(obj, match):
@@ -543,3 +569,79 @@ class PluginActionsTestCase(CMSTestCase, BaseTestCase):
 
             self.assertEqual(response.status_code, 400)
             self.assertEqual(response.content, 'Unable to process your request.')
+
+    def test_render_plugin(self):
+        simple_page = create_page('test page', 'page.html', u'en')
+        simple_placeholder = simple_page.placeholders.get(slot='content')
+        text_plugin = self._add_text_plugin(simple_placeholder)
+
+        for i in range(0, 10):
+            plugin = self._add_child_plugin(
+                text_plugin,
+                plugin_type='LinkPlugin',
+                data_suffix=i
+            )
+
+            text_plugin = self.add_plugin_to_text(text_plugin, plugin)
+
+        with self.assertNumQueries(2):
+            rendered = text_plugin.render_plugin(placeholder=simple_placeholder)
+
+        for i in range(0, 10):
+            self.assertTrue('LinkPlugin record %d' % i in rendered)
+
+    def test_copy_plugin_integrity(self):
+        """
+        Test that copying of textplugins replaces references to copied plugins
+        """
+        simple_page = create_page('test page', 'page.html', u'en')
+        simple_placeholder = simple_page.placeholders.get(slot='content')
+
+        text_plugin = self._add_text_plugin(simple_placeholder)
+
+        child_plugin_1 = self._add_child_plugin(
+            text_plugin,
+            plugin_type='LinkPlugin',
+        )
+
+        text_plugin = self.add_plugin_to_text(text_plugin, child_plugin_1)
+
+        child_plugin_2 = self._add_child_plugin(
+            text_plugin,
+            plugin_type='LinkPlugin',
+        )
+
+        text_plugin = self.add_plugin_to_text(text_plugin, child_plugin_2)
+
+        # create a page translation to copy plugins to
+        translation = create_title(
+            "fr",
+            "test-page-fr",
+            simple_page,
+            slug="test-page-fr"
+        )
+
+        self.assertEqual(CMSPlugin.objects.filter(language='en').count(), 3)
+        self.assertEqual(CMSPlugin.objects.filter(language=translation.language).count(), 0)
+
+        data = {
+            'source_placeholder_id': simple_placeholder.pk,
+            'target_placeholder_id': simple_placeholder.pk,
+            'target_language': translation.language,
+            'source_language': 'en',
+        }
+
+        endpoint = self.get_admin_url(Page, 'copy_plugins')
+
+        with self.login_user_context(self.user):
+            response = self.client.post(endpoint, data)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.content.decode('utf8').count('"position":'), 3)
+            self.assertEqual(CMSPlugin.objects.filter(language='en').count(), 3)
+            self.assertEqual(CMSPlugin.objects.filter(language=translation.language).count(), 3)
+
+            plugins = list(CMSPlugin.objects.all())
+            new_plugin = plugins[3].get_plugin_instance()[0]
+            idlist = sorted(plugin_tags_to_id_list(new_plugin.body))
+            expected = sorted([plugins[4].pk, plugins[5].pk])
+            self.assertEqual(idlist, expected)
