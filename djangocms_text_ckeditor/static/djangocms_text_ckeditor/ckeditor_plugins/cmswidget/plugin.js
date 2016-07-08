@@ -1,25 +1,41 @@
-(function () {
+(function ($) {
     CKEDITOR.plugins.add('cmswidget', {
         requires: 'widget',
+        onLoad: function () {
+            CKEDITOR.addCss(
+                '.cke_widget_wrapper_force_block{' +
+                    'display:block!important;' +
+                '}'
+            );
+        },
 
         init: function (editor) {
-            editor.widgets.add('cmswidget', {
+            editor.widgets.add('cmswidget', (function widgetDef() {
+                return {
+                    button: 'CMS Plugin',
 
-                button: 'CMS Plugin',
+                    template:
+                        '<cms-plugin style="unset: all">' +
+                        '</cms-plugin>',
 
-                template:
-                    '<cms-plugin style="unset: all">' +
-                    '</cms-plugin>',
+                    allowedContent:
+                        'cms-plugin',
 
-                allowedContent:
-                    'cms-plugin',
+                    requiredContent: 'cms-plugin',
 
-                requiredContent: 'cms-plugin',
+                    upcast: function (element) {
+                        return element.name === 'cms-plugin';
+                    },
 
-                upcast: function (element) {
-                    return element.name === 'cms-plugin';
-                }
-            });
+                    init: function () {
+                        var contents = $(this.element.$).children();
+
+                        if (contents.css('display') !== 'inline') {
+                            this.wrapper.addClass('cke_widget_wrapper_force_block');
+                        }
+                    }
+                };
+            })());
         }
     });
-})();
+})(CMS.$);

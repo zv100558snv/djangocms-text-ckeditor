@@ -334,11 +334,17 @@
         },
 
         setupDataProcessor: function () {
+            // var that = this;
+
             // this.editor.dataProcessor.dataFilter.addRules(
             //     {
             //         elements: {
             //             span: function (element) {
-            //                 // debugger
+            //                 if (CKEDITOR.plugins.widget.isParserWidgetWrapper(element)) {
+            //                     console.log(that.editor)
+            //                     debugger
+            //                     element.addClass('cke_widget_wrapper_force_block');
+            //                 }
             //                 return element;
             //             }
             //         }
@@ -347,12 +353,11 @@
             //         applyToAll: true
             //     }
             // );
-            //
+
             // this.editor.dataProcessor.htmlFilter.addRules(
             //     {
             //         elements: {
             //             span: function (element) {
-            //                 // debugger
             //                 return element;
             //             }
             //         }
