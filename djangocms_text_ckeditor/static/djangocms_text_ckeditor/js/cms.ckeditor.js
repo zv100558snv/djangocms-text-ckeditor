@@ -54,8 +54,9 @@
                     this.options = $.extend(false, {
                         settings: settings
                     }, this.options, options);
+
                     document.createElement('cms-plugin');
-                    CKEDITOR.dtd['cms-plugin'] = CKEDITOR.dtd.span;
+                    CKEDITOR.dtd['cms-plugin'] = CKEDITOR.dtd.div;
                     CKEDITOR.dtd.$block['cms-plugin'] = 1;
                     CKEDITOR.dtd.$inline['cms-plugin'] = 1;
                     CKEDITOR.dtd.$transparent['cms-plugin'] = 1;

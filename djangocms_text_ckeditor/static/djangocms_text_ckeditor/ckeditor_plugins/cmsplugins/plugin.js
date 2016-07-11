@@ -117,7 +117,7 @@
                 return {
                     title: '',
                     minWidth: 600,
-                    minHeight: 200,
+                    minHeight: 300,
                     contents: [{
                         elements: [
                             {
@@ -334,38 +334,90 @@
         },
 
         setupDataProcessor: function () {
-            // var that = this;
+            var that = this;
 
-            // this.editor.dataProcessor.dataFilter.addRules(
-            //     {
-            //         elements: {
-            //             span: function (element) {
-            //                 if (CKEDITOR.plugins.widget.isParserWidgetWrapper(element)) {
-            //                     console.log(that.editor)
-            //                     debugger
-            //                     element.addClass('cke_widget_wrapper_force_block');
-            //                 }
-            //                 return element;
-            //             }
-            //         }
-            //     },
-            //     {
-            //         applyToAll: true
-            //     }
-            // );
+            // priorities of callback execution, see http://docs.ckeditor.com/#!/api/CKEDITOR.editor-event-toHtml
+            var BEFORE_PROCESSING_STARTED = 1;
+            var BEFORE_MARKUP_IS_PARSED = 4;
 
-            // this.editor.dataProcessor.htmlFilter.addRules(
-            //     {
-            //         elements: {
-            //             span: function (element) {
-            //                 return element;
-            //             }
-            //         }
-            //     },
-            //     {
-            //         applyToAll: true
-            //     }
-            // );
+            /**
+             * @function isBlockLikeChildren
+             * @public
+             * @param {CKEDITOR.htmlParser.element} element
+             * @returns {Boolean}
+             */
+            function isBlockLikeChildren(element) {
+                return element.attributes && element.attributes['data-cke-real-element-type'] === 'div';
+            }
+
+            this.editor.dataProcessor.dataFilter.addRules(
+                {
+                    elements: {
+                        span: function (element) {
+                            if (CKEDITOR.plugins.widget.isParserWidgetWrapper(element)) {
+                                var cmsPluginNode = element.getFirst();
+
+                                if (isBlockLikeChildren(cmsPluginNode)) {
+                                    // eslint-disable-next-line new-cap
+                                    var newWrapper = new CKEDITOR.htmlParser.element(
+                                        'div',
+                                        $.extend({}, element.attributes)
+                                    );
+
+                                    that.editor.widgets.registered.cmswidget.inline = false;
+                                    newWrapper.children = element.children;
+                                    newWrapper.removeClass('cke_widget_inline');
+                                    newWrapper.removeClass('cke_widget_force_block');
+                                    newWrapper.addClass('cke_widget_block');
+                                    cmsPluginNode.attributes['data-cke-real-element-type'] = 'div';
+
+                                    return newWrapper;
+                                }
+
+                                that.editor.widgets.registered.cmswidget.inline = true;
+                                cmsPluginNode.attributes['data-cke-real-element-type'] = 'span';
+                            }
+                            return element;
+                        }
+                    }
+                },
+                {
+                    priority: 1,
+                    applyToAll: true
+                }
+            );
+
+            // need to update cms-plugin-nodes with fake "real type" so
+            // ckeditor treats them as flow / phrasing elements correctly
+            this.editor.on('toHtml', function (e) {
+                // i feel zalgo coming for me...
+                var newMarkup = e.data.dataValue.replace(
+                    /<cms-plugin(.*?)>([\s\S]*?)<\/cms-plugin>/gi,
+                    function (all, attributes, pluginMarkup) {
+                        var innerTags = (pluginMarkup.match(/<([\S]*?)\s[\s\S]*?>/) || [0, false]).splice(1);
+
+                        var containsAnyBlockLikeElements = innerTags.some(function (tag) {
+                            return tag && CKEDITOR.dtd.$block[tag];
+                        });
+
+                        var fakeRealType = 'span';
+
+                        if (containsAnyBlockLikeElements) {
+                            fakeRealType = 'div';
+                        }
+                        return '<cms-plugin data-cke-real-element-type="' + fakeRealType + '"' + attributes + '>' +
+                            pluginMarkup +
+                            '</cms-plugin>';
+                    }
+                );
+
+                e.data.dataValue = newMarkup;
+            }, null, null, BEFORE_MARKUP_IS_PARSED);
+
+            this.editor.on('toHtml', function () {
+                // reset widgets to inline again to avoid creating block-level inline widget
+                that.editor.widgets.registered.cmswidget.inline = true;
+            }, null, null, BEFORE_PROCESSING_STARTED);
         }
     });
 })(CMS.$);

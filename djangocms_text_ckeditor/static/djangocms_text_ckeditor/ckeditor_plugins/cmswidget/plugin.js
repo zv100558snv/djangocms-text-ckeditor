@@ -5,6 +5,9 @@
             CKEDITOR.addCss(
                 '.cke_widget_wrapper_force_block{' +
                     'display:block!important;' +
+                '}' +
+                '.cke_widget_block>.cke_widget_element{' +
+                    'display:block!important;' +
                 '}'
             );
         },
@@ -18,8 +21,7 @@
                         '<cms-plugin style="unset: all">' +
                         '</cms-plugin>',
 
-                    allowedContent:
-                        'cms-plugin',
+                    allowedContent: 'cms-plugin[*]',
 
                     requiredContent: 'cms-plugin',
 
