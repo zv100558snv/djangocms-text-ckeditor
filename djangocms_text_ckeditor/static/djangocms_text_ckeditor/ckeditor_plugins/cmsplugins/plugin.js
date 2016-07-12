@@ -12,8 +12,8 @@
             this.editor = editor;
 
             /**
-            * populated with _fresh_ child plugins
-            */
+             * populated with _fresh_ child plugins
+             */
             this.child_plugins = [];
             this.setupCancelCleanupCallback(this.options);
 
@@ -283,13 +283,13 @@
         },
 
         /**
-        * Sets up cleanup requests. If the plugin itself or child plugin was created and then
-        * creation was cancelled - we need to clean up created plugins.
-        *
-        * @method setupCancelCleanupCallback
-        * @public
-        * @param {Object} data plugin data
-        */
+         * Sets up cleanup requests. If the plugin itself or child plugin was created and then
+         * creation was cancelled - we need to clean up created plugins.
+         *
+         * @method setupCancelCleanupCallback
+         * @public
+         * @param {Object} data plugin data
+         */
         setupCancelCleanupCallback: function setupCancelCleanupCallback() {
             if (!window.parent || !window.parent.CMS || !window.parent.CMS.API || !window.parent.CMS.API.Helpers) {
                 return;

@@ -2,10 +2,10 @@
     // CMS.$ will be passed for $
     $(function () {
         /**
-        * CMS.CKEditor
-        *
-        * @description: Adds cms specific plugins to CKEditor
-        */
+         * CMS.CKEditor
+         *
+         * @description: Adds cms specific plugins to CKEditor
+         */
         CMS.CKEditor = {
 
             options: {
