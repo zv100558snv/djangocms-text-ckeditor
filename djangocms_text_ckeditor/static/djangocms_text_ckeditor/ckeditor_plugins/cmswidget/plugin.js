@@ -3,9 +3,12 @@
         requires: 'widget',
         onLoad: function () {
             CKEDITOR.addCss(
+                // when widget contents are inline,
+                // but have block-level css
                 '.cke_widget_wrapper_force_block{' +
                     'display:block!important;' +
                 '}' +
+                // empty elements focus outline
                 '.cke_widget_block>.cke_widget_element{' +
                     'display:block!important;' +
                 '}'
@@ -42,6 +45,15 @@
                             this.wrapper.addClass('cke_widget_wrapper_force_block');
                         }
 
+                        this.bindJustifyHandlers();
+                    },
+
+                    /**
+                     * @function bindJustifyHandlers
+                     * @public
+                     * @see {setupJustifyCommandHandlers}
+                     */
+                    bindJustifyHandlers: function () {
                         this.on('select', function () {
                             editor.getCommand('justifyleft').disable();
                             editor.getCommand('justifyright').disable();
@@ -58,6 +70,14 @@
             })());
         },
 
+        /**
+         * With "real preview" plugin markup can be incorrectly justified because of the extra
+         * wrapper. To avoid breaking up cms-plugin markup we disable justify commands when widgets
+         * are selected.
+         *
+         * @function setupJustifyCommandHandlers
+         * @param {CKEDITOR.editor} editor instance
+         */
         setupJustifyCommandHandlers: function (editor) {
             var commands = ['left', 'center', 'right'];
 
