@@ -20,7 +20,7 @@
                     ['Maximize', ''],
                     '/',
                     ['Bold', 'Italic', 'Underline', '-', 'Subscript', 'Superscript', '-', 'RemoveFormat'],
-                    ['JustifyLeft', 'JustifyCenter', 'JustifyRight'],
+                    ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock'],
                     ['HorizontalRule'],
                     ['NumberedList', 'BulletedList', '-', 'Outdent', 'Indent', '-', 'Table'],
                     ['Source']
@@ -33,7 +33,7 @@
                     ['Maximize', ''],
                     '/',
                     ['Bold', 'Italic', 'Underline', '-', 'Subscript', 'Superscript', '-', 'RemoveFormat'],
-                    ['JustifyLeft', 'JustifyCenter', 'JustifyRight'],
+                    ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock'],
                     ['HorizontalRule'],
                     ['Link', 'Unlink'],
                     ['NumberedList', 'BulletedList', '-', 'Outdent', 'Indent', '-', 'Table'],

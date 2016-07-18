@@ -58,12 +58,14 @@
                             editor.getCommand('justifyleft').disable();
                             editor.getCommand('justifyright').disable();
                             editor.getCommand('justifycenter').disable();
+                            editor.getCommand('justifyblock').disable();
                         });
 
                         this.on('deselect', function () {
                             editor.getCommand('justifyleft').enable();
                             editor.getCommand('justifyright').enable();
                             editor.getCommand('justifycenter').enable();
+                            editor.getCommand('justifyblock').enable();
                         });
                     }
                 };
@@ -79,7 +81,7 @@
          * @param {CKEDITOR.editor} editor instance
          */
         setupJustifyCommandHandlers: function (editor) {
-            var commands = ['left', 'center', 'right'];
+            var commands = ['left', 'center', 'right', 'block'];
 
             commands.forEach(function (command) {
                 var justifyCommand = editor.getCommand('justify' + command);
