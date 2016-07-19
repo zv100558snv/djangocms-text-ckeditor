@@ -8,20 +8,31 @@ from django.template.defaultfilters import force_escape
 from django.utils.functional import LazyObject
 
 
-OBJ_ADMIN_RE_PATTERN = r'(<cms-plugin [^>]*\bid="(?P<pk>\d+)"[^>]*/?>).*?(</cms-plugin>)'
+OBJ_ADMIN_RE_PATTERN = r'<cms-plugin [^>]*\bid="(?P<pk>\d+)"[^>]*/?>.*?</cms-plugin>'
 OBJ_ADMIN_RE = re.compile(OBJ_ADMIN_RE_PATTERN, flags=re.DOTALL)
 
 
-def plugin_to_tag(obj, content=''):
+def plugin_to_tag(obj, content='', admin=False):
     plugin_attrs = {
         'id': obj.pk,
         'icon_alt': force_escape(obj.get_instance_icon_alt()),
         'content': content,
     }
-    plugin_tag = (
-        u'<cms-plugin alt="%(icon_alt)s "'
-        u'title="%(icon_alt)s" id="%(id)d">%(content)s</cms-plugin>'
-    )
+
+    if admin:
+        # Include extra attributes when rendering on the admin
+        plugin_class = obj.get_plugin_class()
+        preview = getattr(plugin_class, 'text_editor_preview', True)
+        plugin_tag = (
+            u'<cms-plugin render-plugin=%(preview)s alt="%(icon_alt)s "'
+            u'title="%(icon_alt)s" id="%(id)d">%(content)s</cms-plugin>'
+        )
+        plugin_attrs['preview'] = 'true' if preview else 'false'
+    else:
+        plugin_tag = (
+            u'<cms-plugin alt="%(icon_alt)s "'
+            u'title="%(icon_alt)s" id="%(id)d">%(content)s</cms-plugin>'
+        )
     return plugin_tag % plugin_attrs
 
 
@@ -66,15 +77,13 @@ def plugin_tags_to_user_html(text, context, placeholder):
 def plugin_tags_to_admin_html(text, context, placeholder):
     def _render_plugin(obj, match):
         plugin_content = obj.render_plugin(context, placeholder)
-        groups = match.groups()
-        return u'{}{}{}'.format(groups[0], plugin_content, groups[2])
+        return plugin_to_tag(obj, content=plugin_content, admin=True)
     return _plugin_tags_to_html(text, output_func=_render_plugin)
 
 
 def plugin_tags_to_db(text):
     def _strip_plugin_content(obj, match):
-        groups = match.groups()
-        return groups[0] + groups[2]
+        return plugin_to_tag(obj)
     return _plugin_tags_to_html(text, output_func=_strip_plugin_content)
 
 

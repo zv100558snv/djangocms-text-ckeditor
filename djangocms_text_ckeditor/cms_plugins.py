@@ -12,11 +12,7 @@ from django.core.urlresolvers import reverse
 from django.db import transaction
 from django.forms.fields import CharField
 from django.http import (
-    Http404,
-    HttpResponse,
-    HttpResponseBadRequest,
-    HttpResponseForbidden,
-    HttpResponseRedirect,
+    Http404, HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, HttpResponseRedirect,
 )
 from django.shortcuts import get_object_or_404
 from django.template import RequestContext
@@ -27,12 +23,7 @@ from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_POST
 
 from . import settings
-from .forms import (
-    ActionTokenValidationForm,
-    DeleteOnCancelForm,
-    RenderPluginForm,
-    TextForm,
-)
+from .forms import ActionTokenValidationForm, DeleteOnCancelForm, RenderPluginForm, TextForm
 from .models import Text
 from .utils import plugin_tags_to_admin_html, plugin_tags_to_user_html
 from .widgets import TextEditorWidget

@@ -1,4 +1,29 @@
 (function ($) {
+    /**
+     * Determine if we should return `div` or `span` based on the
+     * plugin markup.
+     *
+     * @function getFakePluginElement
+     * @private
+     * @param {String} pluginMarkup valid html hopefully
+     * @returns {String} div|span
+     */
+    function getFakePluginElement(pluginMarkup) {
+        var innerTags = (pluginMarkup.match(/<([\S]*?)\s[\s\S]*?>/) || [0, false]).splice(1);
+
+        var containsAnyBlockLikeElements = innerTags.some(function (tag) {
+            return tag && CKEDITOR.dtd.$block[tag];
+        });
+
+        var fakeRealType = 'span';
+
+        if (containsAnyBlockLikeElements) {
+            fakeRealType = 'div';
+        }
+
+        return fakeRealType;
+    }
+
     CKEDITOR.plugins.add('cmsplugins', {
 
         // Register the icons. They must match command names.
@@ -389,23 +414,23 @@
 
             // need to update cms-plugin-nodes with fake "real type" so
             // ckeditor treats them as flow / phrasing elements correctly
+            // + we check if plugin markup should be rendered or no
             this.editor.on('toHtml', function (e) {
-                // i feel zalgo coming for me...
+                // now i have two problems
                 var newMarkup = e.data.dataValue.replace(
                     /<cms-plugin(.*?)>([\s\S]*?)<\/cms-plugin>/gi,
                     function (all, attributes, pluginMarkup) {
-                        var innerTags = (pluginMarkup.match(/<([\S]*?)\s[\s\S]*?>/) || [0, false]).splice(1);
+                        var fakeRealType = getFakePluginElement(pluginMarkup);
 
-                        var containsAnyBlockLikeElements = innerTags.some(function (tag) {
-                            return tag && CKEDITOR.dtd.$block[tag];
-                        });
-
-                        var fakeRealType = 'span';
-
-                        if (containsAnyBlockLikeElements) {
-                            fakeRealType = 'div';
+                        if (attributes.match(/render-plugin=["']?false/gi)) {
+                            return '<cms-plugin data-cke-real-element-type="' + fakeRealType + '" ' + attributes + '>' +
+                                    '<' + fakeRealType + ' class="cms-ckeditor-plugin-label">' +
+                                        attributes.replace(/[\s\S]*alt=["']([\s\S]*?)['"][\s\S]*/, '$1') +
+                                    '</' + fakeRealType + '>' +
+                                '</cms-plugin>';
                         }
-                        return '<cms-plugin data-cke-real-element-type="' + fakeRealType + '"' + attributes + '>' +
+
+                        return '<cms-plugin data-cke-real-element-type="' + fakeRealType + '" ' + attributes + '>' +
                             pluginMarkup +
                             '</cms-plugin>';
                     }

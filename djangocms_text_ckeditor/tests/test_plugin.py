@@ -3,22 +3,23 @@ import re
 
 from cms.api import add_plugin, create_page, create_title
 from cms.models import CMSPlugin, Page, Title
-from cms.utils.urlutils import admin_reverse
 from cms.test_utils.testcases import CMSTestCase
+from cms.utils.urlutils import admin_reverse
 from django.contrib import admin
 from django.contrib.auth import get_permission_codename
 from django.contrib.auth.models import Permission
 from django.template import RequestContext
-from django.utils.http import urlencode
+from django.utils.encoding import force_text
 from django.utils.html import escape
+from django.utils.http import urlencode
 from djangocms_helper.base_test import BaseTestCase
 
 from djangocms_text_ckeditor.models import Text
 from djangocms_text_ckeditor.utils import (
     _plugin_tags_to_html,
-    plugin_to_tag,
     plugin_tags_to_admin_html,
     plugin_tags_to_id_list,
+    plugin_to_tag,
 )
 
 
@@ -49,6 +50,7 @@ class PluginActionsTestCase(CMSTestCase, BaseTestCase):
                 'name': name,
                 'url': 'https://www.django-cms.org',
             },
+            'PreviewDisabledPlugin': {},
         }
 
         if plugin_type == 'PicturePlugin':
@@ -76,8 +78,7 @@ class PluginActionsTestCase(CMSTestCase, BaseTestCase):
 
     def _replace_plugin_contents(self, text, new_plugin_content):
         def _do_replace(obj, match):
-            groups = match.groups()
-            return u'{}{}{}'.format(groups[0], new_plugin_content, groups[2])
+            return plugin_to_tag(obj, content=new_plugin_content)
         return _plugin_tags_to_html(text, output_func=_do_replace)
 
     def add_plugin_to_text(self, text_plugin, plugin):
@@ -485,9 +486,33 @@ class PluginActionsTestCase(CMSTestCase, BaseTestCase):
 
             context = RequestContext(request)
             rendered_content = child_plugin.render_plugin(context)
-            rendered_child_plugin = plugin_to_tag(child_plugin, content=rendered_content)
+            rendered_child_plugin = plugin_to_tag(
+                child_plugin,
+                content=rendered_content,
+                admin=True,
+            )
 
-            self.assertEqual(response.content, rendered_child_plugin)
+            self.assertEqual(force_text(response.content), rendered_child_plugin)
+
+        child_plugin = self._add_child_plugin(text_plugin, plugin_type='PreviewDisabledPlugin')
+        text_plugin = self.add_plugin_to_text(text_plugin, child_plugin)
+
+        with self.login_user_context(self.get_superuser()):
+            request = self.get_request()
+            action_token = text_plugin_class.get_action_token(request, text_plugin)
+            endpoint = self.get_admin_url(Text, 'render_plugin')
+            endpoint += '?token={}&plugin={}'.format(action_token, child_plugin.pk)
+            response = self.client.get(endpoint)
+
+            self.assertEqual(response.status_code, 200)
+
+            rendered_child_plugin = ('<cms-plugin render-plugin=false '
+                                     'alt="Preview Disabled Plugin - 3 '
+                                     '"title="Preview Disabled Plugin - 3" '
+                                     'id="3"><span>Preview is disabled for this plugin</span>'
+                                     '</cms-plugin>')
+
+            self.assertEqual(force_text(response.content), rendered_child_plugin)
 
     def test_render_child_plugin_permissions(self):
         """
@@ -514,7 +539,7 @@ class PluginActionsTestCase(CMSTestCase, BaseTestCase):
             response = self.client.get(endpoint)
 
             self.assertEqual(response.status_code, 403)
-            self.assertEqual(response.content, '<h1>403 Forbidden</h1>')
+            self.assertEqual(force_text(response.content), '<h1>403 Forbidden</h1>')
 
     def test_render_child_plugin_token_validation(self):
         """
@@ -548,7 +573,7 @@ class PluginActionsTestCase(CMSTestCase, BaseTestCase):
             response = self.client.get(endpoint)
 
             self.assertEqual(response.status_code, 400)
-            self.assertEqual(response.content, 'Unable to process your request. Invalid token.')
+            self.assertEqual(force_text(response.content), 'Unable to process your request. Invalid token.')
 
         text_plugin_2 = add_plugin(
             simple_placeholder,
@@ -568,7 +593,7 @@ class PluginActionsTestCase(CMSTestCase, BaseTestCase):
             response = self.client.get(endpoint)
 
             self.assertEqual(response.status_code, 400)
-            self.assertEqual(response.content, 'Unable to process your request.')
+            self.assertEqual(force_text(response.content), 'Unable to process your request.')
 
     def test_render_plugin(self):
         simple_page = create_page('test page', 'page.html', u'en')

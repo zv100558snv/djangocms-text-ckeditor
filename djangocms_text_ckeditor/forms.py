@@ -8,7 +8,7 @@ from django.template import RequestContext
 from django.utils.translation import ugettext
 
 from .models import Text
-from .utils import plugin_to_tag, plugin_tags_to_id_list
+from .utils import plugin_tags_to_id_list, plugin_to_tag
 
 
 class ActionTokenValidationForm(forms.Form):
@@ -44,7 +44,7 @@ class RenderPluginForm(forms.Form):
         plugin = self.cleaned_data['plugin']
         context = RequestContext(request)
         rendered_content = plugin.render_plugin(context)
-        return plugin_to_tag(plugin, content=rendered_content)
+        return plugin_to_tag(plugin, content=rendered_content, admin=True)
 
 
 class DeleteOnCancelForm(forms.Form):

@@ -11,6 +11,20 @@
                 // empty elements focus outline
                 '.cke_widget_block>.cke_widget_element{' +
                     'display:block!important;' +
+                '}' +
+                'span.cms-ckeditor-plugin-label{' +
+                    'display: inline-block !important;' +
+                    'padding-left: 8px;' +
+                    'padding-right: 8px;' +
+                '}' +
+                '.cms-ckeditor-plugin-label{' +
+                    'background: black;' +
+                    'color: white;' +
+                    'text-align: center;' +
+                    'border-radius: 3px;' +
+                    'height: 24px;' +
+                    'line-height: 24px;' +
+                    'font-size: 14px !important;' +
                 '}'
             );
         },
@@ -40,8 +54,9 @@
 
                     init: function () {
                         var contents = $(this.element.$).children();
+                        var displayProp = contents.css('display');
 
-                        if (contents.css('display') !== 'inline') {
+                        if (displayProp !== 'inline' && displayProp !== 'inline-block') {
                             this.wrapper.addClass('cke_widget_wrapper_force_block');
                         }
 
