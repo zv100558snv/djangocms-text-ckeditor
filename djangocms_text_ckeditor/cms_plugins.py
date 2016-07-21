@@ -186,7 +186,7 @@ class TextPlugin(CMSPluginBase):
         return url_name
 
     def _get_text_plugin_from_request(self, request, data):
-        if not request.user.is_active and request.user.is_staff:
+        if not (request.user.is_active and request.user.is_staff):
             raise PermissionDenied
 
         form = ActionTokenValidationForm(data)
