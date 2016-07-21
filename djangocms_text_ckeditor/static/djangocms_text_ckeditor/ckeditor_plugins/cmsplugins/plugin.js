@@ -100,9 +100,11 @@
                 var element;
 
                 if (event.type === 'touchend' || event.type === 'click') {
+                    var cmsPluginNode = $(event.currentTarget).closest('cms-plugin')[0];
+
                     // pick cke_widget span
                     // eslint-disable-next-line new-cap
-                    element = new CKEDITOR.dom.element($(event.currentTarget).closest('cms-plugin')[0]).getParent();
+                    element = new CKEDITOR.dom.element(cmsPluginNode).getParent();
 
                     event.data = event.data || {};
                     // have to fake selection to be able to replace markup after editing
